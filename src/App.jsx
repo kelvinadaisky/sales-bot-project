@@ -14,7 +14,7 @@ const App = () => {
 
     // IMPORTANT: Replace this with your actual n8n Webhook URL
     // You can find this URL when you add a 'Webhook' node as a trigger in your n8n workflow.
-    const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook-test/2c0c487d-99ed-4ab9-ae7a-31912f45de49'; // <<<--- REPLACE THIS LINE
+    const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook/2c0c487d-99ed-4ab9-ae7a-31912f45de49'; // <<<--- REPLACE THIS LINE
 
     // Effect to scroll to the bottom of the chat whenever messages change
     useEffect(() => {
