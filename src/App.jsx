@@ -12,6 +12,10 @@ const App = () => {
     // Ref for the messages container to enable auto-scrolling
     const messagesEndRef = useRef(null);
 
+    // IMPORTANT: Replace this with your actual n8n Webhook URL
+    // You can find this URL when you add a 'Webhook' node as a trigger in your n8n workflow.
+    const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook-test/2c0c487d-99ed-4ab9-ae7a-31912f45de49'; // <<<--- REPLACE THIS LINE
+
     // Effect to scroll to the bottom of the chat whenever messages change
     useEffect(() => {
         if (messagesEndRef.current) {
@@ -32,55 +36,53 @@ const App = () => {
 
         setIsLoading(true); // Show loading indicator
 
-        // Simulate a delay for the bot's response
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // Simulate a brief delay for UI responsiveness before calling n8n
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Call the LLM (Gemini API) to get a bot response
-        await getBotResponse(input);
+        // Call the n8n workflow to get a bot response
+        await getBotResponseFromN8n(input);
 
         setIsLoading(false); // Hide loading indicator
     };
 
     /**
-     * Fetches a response from the Gemini API.
-     * @param {string} userQuery The user's message to send to the bot.
+     * Fetches a response from the n8n webhook.
+     * @param {string} userQuery The user's message to send to the n8n workflow.
      */
-    const getBotResponse = async (userQuery) => {
-        let chatHistory = [];
-        chatHistory.push({ role: "user", parts: [{ text: userQuery }] });
-
-        const payload = { contents: chatHistory };
-        // API key is left empty; Canvas will inject it at runtime.
-        const apiKey = "";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const getBotResponseFromN8n = async (userQuery) => {
+        if (!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL === 'YOUR_N8N_WEBHOOK_URL_HERE') {
+            const errorMessage = { text: "Error: Please configure your n8n Webhook URL in the code.", sender: 'bot' };
+            setMessages((prevMessages) => [...prevMessages, errorMessage]);
+            console.error("n8n Webhook URL is not configured.");
+            return;
+        }
 
         try {
-            const response = await fetch(apiUrl, {
+            const response = await fetch(N8N_WEBHOOK_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // Send the user's query in the request body
+                body: JSON.stringify({ message: userQuery })
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             const result = await response.json();
 
-            // Check if the response structure is valid and contains content
-            if (result.candidates && result.candidates.length > 0 &&
-                result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
-                const botText = result.candidates[0].content.parts[0].text;
-                const botMessage = { text: botText, sender: 'bot' };
-                setMessages((prevMessages) => [...prevMessages, botMessage]);
-            } else {
-                // Fallback for unexpected response structure
-                const fallbackMessage = { text: "I'm sorry, I couldn't generate a response. Please try again.", sender: 'bot' };
-                setMessages((prevMessages) => [...prevMessages, fallbackMessage]);
-                console.error("Unexpected API response structure:", result);
-            }
+            // Assuming n8n returns the bot's response in a 'response' or 'text' field
+            const botText = result.response || result.text || "I'm sorry, I couldn't get a clear response from the workflow.";
+            const botMessage = { text: botText, sender: 'bot' };
+            setMessages((prevMessages) => [...prevMessages, botMessage]);
+
         } catch (error) {
             // Handle API call errors
-            const errorMessage = { text: "There was an error connecting to the bot. Please try again later.", sender: 'bot' };
+            const errorMessage = { text: `There was an error connecting to the n8n workflow: ${error.message}. Please check your n8n setup.`, sender: 'bot' };
             setMessages((prevMessages) => [...prevMessages, errorMessage]);
-            console.error("Error fetching bot response:", error);
+            console.error("Error fetching bot response from n8n:", error);
         }
     };
 
